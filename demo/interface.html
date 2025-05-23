@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Legal Document Chatbot</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2em; }
+    .section { margin-bottom: 2em; }
+    textarea, input[type=file] { width: 100%; margin-top: 0.5em; }
+    button { margin-top: 1em; padding: 0.5em 1em; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1em; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Legal Document Chatbot</h1>
+
+  <div class="section">
+    <h2>Upload Legal Documents (Max: 100 PDFs)</h2>
+    <form id="uploadForm">
+      <input type="file" id="pdfFiles" name="files" multiple accept="application/pdf" />
+      <button type="submit">Upload</button>
+    </form>
+    <div id="uploadStatus"></div>
+  </div>
+
+  <div class="section">
+    <h2>Ask a Legal Question</h2>
+    <textarea id="userQuestion" rows="4" placeholder="Type your question here..."></textarea><br>
+    <button onclick="sendQuery()">Ask</button>
+  </div>
+
+  <div class="section">
+    <h2>Answer</h2>
+    <pre id="answerText"></pre>
+
+    <h3>Citations</h3>
+    <table id="citationsTable">
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Location</th>
+          <th>Snippet</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const files = document.getElementById('pdfFiles').files;
+      if (files.length > 2) {
+        alert("Please upload at least 75 documents.");
+        return;
+      }
+      const status = document.getElementById('uploadStatus');
+      status.innerText = 'Uploading...';
+
+      for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append("file", files[i]);
+        try {
+          const res = await fetch("/upload", {
+            method: "POST",
+            body: formData
+          });
+          const result = await res.json();
+          status.innerText = `Uploaded ${i + 1} of ${files.length} files...`;
+        } catch (err) {
+          status.innerText = `Failed on file ${i + 1}`;
+          break;
+        }
+      }
+      status.innerText = 'Upload complete.';
+    });
+
+    async function sendQuery() {
+      const question = document.getElementById('userQuestion').value;
+      const res = await fetch("/query", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+
+      const data = await res.json();
+      document.getElementById('answerText').innerText = data.answer;
+
+      const tableBody = document.getElementById('citationsTable').querySelector('tbody');
+      tableBody.innerHTML = '';
+      data.citations.forEach(cite => {
+        const row = `<tr><td>${cite.doc_id}</td><td>Page ${cite.page}, ¶${cite.paragraph}</td><td>${cite.snippet}</td></tr>`;
+        tableBody.innerHTML += row;
+      });
+    }
+  </script>
+</body>
+</html>
